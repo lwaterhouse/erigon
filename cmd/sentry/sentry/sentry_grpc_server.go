@@ -791,16 +791,26 @@ func (ss *GrpcServer) SendMessageToAll(ctx context.Context, req *proto_sentry.Ou
 	msgcode := eth.FromProto[ss.Protocol.Version][req.Id]
 	if msgcode != eth.NewBlockMsg &&
 		msgcode != eth.NewPooledTransactionHashesMsg && // to broadcast new local transactions
+		msgcode != eth.GetReceiptsMsg &&
 		msgcode != eth.NewBlockHashesMsg {
 		return reply, fmt.Errorf("sendMessageToAll not implemented for message Id: %s", req.Id)
 	}
 
 	var lastErr error
-	ss.rangePeers(func(peerInfo *PeerInfo) bool {
-		ss.writePeer("SendMessageToAll", peerInfo, msgcode, req.Data, 0)
-		reply.Peers = append(reply.Peers, gointerfaces.ConvertHashToH512(peerInfo.ID()))
-		return true
-	})
+
+	if msgcode == eth.GetReceiptsMsg {
+		ss.rangePeers(func(peerInfo *PeerInfo) bool {
+			ss.writePeer("sendMessageById", peerInfo, msgcode, req.Data, 0)
+			reply.Peers = append(reply.Peers, gointerfaces.ConvertHashToH512(peerInfo.ID()))
+			return true
+		})
+	} else {
+		ss.rangePeers(func(peerInfo *PeerInfo) bool {
+			ss.writePeer("SendMessageToAll", peerInfo, msgcode, req.Data, 0)
+			reply.Peers = append(reply.Peers, gointerfaces.ConvertHashToH512(peerInfo.ID()))
+			return true
+		})
+	}
 	return reply, lastErr
 }
 
